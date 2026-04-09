@@ -25,7 +25,7 @@ So, instead of manually feeding data to the LLM, I built a 3-tier MCP architectu
 ```mermaid
 graph TD
     subgraph "AI Orchestration Layer"
-        A[Claude Code / Cursor]
+        A[Agentic AI Tools]
         B[Local CLI Agents]
         R[Master Router File]
     end
@@ -80,4 +80,4 @@ This "lazy loading" of system prompts ensured the agent only consumed tokens for
 If you are building autonomous agents, stop pasting raw context and BE CAREFUL with having your whole project folder as context. Remember to use `.*ignore` files and only call certain files conditionally via ruling in files like `CLAUDE.md`, `GEMINI.md`, etc. Build the infrastructure to let your agents fetch exactly what they need, exactly when they need it.
 
 ---
-*Note: This repository contains the architectural blueprint and documentation for this PoC. Source code is kept private due to proprietary data structures used in the testing environments.*
+*Note: This repository contains the architectural blueprint and documentation for this PoC. Source code is kept private due to personal data structures used in the testing environments.*
