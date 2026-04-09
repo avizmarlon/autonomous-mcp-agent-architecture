@@ -17,7 +17,7 @@ Instead of eagerly loading context, I built an infrastructure that allows the AI
 ```mermaid
 graph TD
     subgraph "AI Orchestration Layer"
-        A[Claude Code / Cursor]
+        A[Agentic AI Tool]
         B[Local CLI Agents]
     end
 
