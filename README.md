@@ -1,23 +1,31 @@
 # 🌉 MCP Autonomous Agent Architecture (PoC)
 
-A Proof-of-Concept (PoC) architecture demonstrating how to reduce Large Language Model (LLM) token consumption by over 90% using the **Model Context Protocol (MCP)**, Chrome Extensions (MV3), Native Messaging, and Conditional Context Routing.
+I’ve been spending my free time exploring the limits of autonomous AI agents and MCPs. I was building a Proof-of-Concept agent designed to analyze massive JSON log files and dashboards.
 
-## ⚠️ The Problem: The Cost of Raw Context
+The code worked nicely, but I hit a wall REAL quick: The API bill 🥹
 
-When building autonomous AI agents to analyze complex web dashboards and massive JSON logs, the standard approach is to feed raw data dumps directly into the LLM's context window. 
+I was doing some stress tests, a single complex analysis loop was burning through **1.4 million tokens**. That definitely isn't right for a single turn. If I ever wanted to scale this architecture, this token consumption would be unsustainable long-term.
 
-During stress tests, a single complex analysis loop was consuming up to **1.4 million tokens**. Every time the agent iterated on a diagnostic step, the massive payload remained in the context window, compounding the cost exponentially. Prompt engineering couldn't fix this; it required an infrastructure pivot.
+Here is how I audited, redesigned the architecture, and dropped the context cost by over 90%.
 
-## 🏗️ The Solution: A 3-Tier "Bridge" Architecture
+## 🔍 Finding the Bottleneck
 
-Instead of eagerly loading context, I built an infrastructure that allows the AI to fetch exactly what it needs, exactly when it needs it, using MCP tools.
+So, before optimizing prompts blindly, I created a structured analysis framework. I was running a multi-agent setup (using multiple agentic AI tools and local CLI tools).
 
-### Architecture Diagram
+The analysis revealed that the problem wasn't my system prompts. The problem was the data ingestion workflow (input I provided).
+
+I was feeding an entire raw data dump (often 900+ lines of text and logs) directly into the LLM's context window 🤭 Every time the agent iterated on a step, that massive amount of data remained in the context window, adding up exponentially at each turn to a huge final cost.
+
+## 🏗️ Building "The Bridge"
+
+Prompt engineering wouldn't fix this 😂 I needed an architectural change, totally different approach.
+
+So, instead of manually feeding data to the LLM, I built a 3-tier MCP architecture:
 
 ```mermaid
 graph TD
     subgraph "AI Orchestration Layer"
-        A[Agentic AI Tool]
+        A[Claude Code / Cursor]
         B[Local CLI Agents]
         R[Master Router File]
     end
@@ -40,37 +48,36 @@ graph TD
     E <-->|DOM/Network Extraction| F
 ```
 
-### Component Breakdown
+1. **Data Extractor (Chrome Extension MV3):** A sandbox extension to capture real-time data.
+2. **Native Messaging Host:** Acting as the secure bridge between the browser and local processes.
+3. **Node.js MCP Server:** Connecting tools to the LLMs.
 
-1. **Data Extractor (Chrome Extension MV3):** 
-   A sandboxed extension injected into the target web environment. It captures real-time page data, network requests, without relying on public APIs.
-   
-2. **Native Messaging Host:** 
-   Acts as the secure, high-speed bridge between the browser environment and the local operating system.
+**The Impact:** Before the MCP Bridge, I was passing massive raw text blocks (costing ~50k-100k tokens per loop). With Bridge, the AI simply calls a tool: `fetch_context()`. The MCP server fetches the data, extracts only important entities, and returns a clean, structured JSON to the LLM.
 
-3. **Node.js MCP Server:** 
-   Exposes specific data-fetching tools (e.g., `fetch_context()`) to the LLMs. It receives the raw data from the browser, structures it, extracts only the key entities, and returns a clean, minified JSON to the LLM.
+The new cost? Roughly 3k tokens for the exact same analytical context. Crazy right?
 
-## 🚀 Key Engineering Challenges Solved
+## ⚡ The Concurrency Challenge: Stdio vs. HTTP
 
-### 1. Token Reduction (1.4M -> 3k)
-By shifting from "eager context loading" (pasting transcripts) to "lazy context fetching" (tool calling via MCP), the token footprint for a single complex diagnostic session dropped from ~1.4M tokens to roughly 3k tokens, maintaining 100% analytical accuracy.
+Once the Bridge was live, I hit a new architectural wall. Standard MCP servers use `stdio` transport (one dedicated process per client). But like I mentioned I like experimenting a lot of different AI tools in parallel.
 
-### 2. The Concurrency Challenge (Stdio vs. HTTP)
-Standard MCP servers use `stdio` transport, creating a 1:1 relationship (one dedicated process per client). However, my workflow required using multiple agentic AI tools in parallel. 
+**The Solution:** I rewrote the MCP server to drop `stdio` in favor of a `StreamableHTTPServerTransport` daemon with session management. Now, multiple AI tools receive unique session IDs but share the same underlying data buffer. I can finally use the MCP server across all my tools and it's a relief.
 
-**The Fix:** I rewrote the MCP server transport layer, dropping `stdio` in favor of a `StreamableHTTPServerTransport` daemon with session management. Now, multiple AI tools receive unique session IDs but share the same underlying data buffer and browser state.
+## 🔀 The System Prompt Problem: Lazy-Loading Context
 
-### 3. Lazy-Loading System Prompts & Rules
-Beyond data ingestion, I optimized how the AI reads its own instructions. Eager-loading dozens of markdown files containing project rules and domain knowledge into every prompt was wasting baseline tokens. 
+Beyond data ingestion, I noticed another huge token leak: my own system instructions. 
 
-**The Fix:** I implemented a conditional routing system. A lightweight master file (like `CLAUDE.md`) acts as a router, instructing the agent: *"If the task involves X, read `rules/x.md` first. Otherwise, ignore it."* This ensures the agent only consumes tokens for the exact behavioral rules required for the current task.
+I had dozens of markdown files containing specific behavioral rules and domain knowledge. Initially, I was eager-loading all of these files into the LLM's context for every single prompt. If I asked a simple question, the agent was still reading the rules for complex server SSH access 🤦‍♂️
 
-## 🛠️ Tech Stack
-* **AI/LLMs:** Claude Opus 4.6, Sonnet 4.6, Haiku 4.5, GPT 5.4 Medium/High, Gemini 3.1 Pro, OpenRouter with Qwen3.6 Plus and Gemma 4, Local Models (Qwen and Gemma variants).
-* **Protocols:** Model Context Protocol (MCP)
-* **Backend:** Node.js, TypeScript
-* **Browser:** Chrome Extension API (Manifest V3), Native Messaging
+**The Solution:** I implemented a conditional routing system. I created a lightweight master instruction file (like `CLAUDE.md` or `GEMINI.md`) that acts as a router. It explicitly instructs the agent: *"If the task involves X, read `rules/x.md` first. Otherwise, ignore it."* 
+
+This "lazy loading" of system prompts ensured the agent only consumed tokens for the exact behavioral rules required for the current task.
+
+## 💡 Core Takeaways for AI Engineers
+
+* **Architectural optimization beats prompt optimization.** Building the MCP Bridge saved infinitely more tokens than tweaking system instructions or miraculous and fancy rules ever could. I see projects with SO MANY rules that could end up causing confusion for most models lower than Opus 4.6 Thinking MAX. I'm talking about hundreds of rules. That's insane.
+* **Measure before you cut.** The 1.4 million token metric forced me to make hard architectural decisions. I screwed up when planning the architecture. But lesson learned. MCPs all the way now.
+
+If you are building autonomous agents, stop pasting raw context and BE CAREFUL with having your whole project folder as context. Remember to use `.*ignore` files and only call certain files conditionally via ruling in files like `CLAUDE.md`, `GEMINI.md`, etc. Build the infrastructure to let your agents fetch exactly what they need, exactly when they need it.
 
 ---
-*Note: This repository contains the architectural blueprint and documentation for this PoC. Source code is kept private due to personal data structures used in the testing environments.*
+*Note: This repository contains the architectural blueprint and documentation for this PoC. Source code is kept private due to proprietary data structures used in the testing environments.*
