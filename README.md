@@ -1,6 +1,6 @@
 # 🌉 MCP Autonomous Agent Architecture (PoC)
 
-A Proof-of-Concept (PoC) architecture demonstrating how to reduce Large Language Model (LLM) token consumption by over 90% using the **Model Context Protocol (MCP)**, Chrome Extensions (MV3), and Native Messaging.
+A Proof-of-Concept (PoC) architecture demonstrating how to reduce Large Language Model (LLM) token consumption by over 90% using the **Model Context Protocol (MCP)**, Chrome Extensions (MV3), Native Messaging, and Conditional Context Routing.
 
 ## ⚠️ The Problem: The Cost of Raw Context
 
@@ -19,6 +19,7 @@ graph TD
     subgraph "AI Orchestration Layer"
         A[Agentic AI Tool]
         B[Local CLI Agents]
+        R[Master Router File]
     end
 
     subgraph "The Bridge (Local Localhost)"
@@ -31,6 +32,7 @@ graph TD
         F[(Web Dashboard / JSON Logs)]
     end
 
+    A <-->|Conditional Rule Loading| R
     A <-->|HTTP / SSE| C
     B <-->|HTTP / SSE| C
     C <-->|Stdio| D
@@ -58,6 +60,11 @@ By shifting from "eager context loading" (pasting transcripts) to "lazy context 
 Standard MCP servers use `stdio` transport, creating a 1:1 relationship (one dedicated process per client). However, my workflow required using multiple agentic AI tools in parallel. 
 
 **The Fix:** I rewrote the MCP server transport layer, dropping `stdio` in favor of a `StreamableHTTPServerTransport` daemon with session management. Now, multiple AI tools receive unique session IDs but share the same underlying data buffer and browser state.
+
+### 3. Lazy-Loading System Prompts & Rules
+Beyond data ingestion, I optimized how the AI reads its own instructions. Eager-loading dozens of markdown files containing project rules and domain knowledge into every prompt was wasting baseline tokens. 
+
+**The Fix:** I implemented a conditional routing system. A lightweight master file (like `CLAUDE.md`) acts as a router, instructing the agent: *"If the task involves X, read `rules/x.md` first. Otherwise, ignore it."* This ensures the agent only consumes tokens for the exact behavioral rules required for the current task.
 
 ## 🛠️ Tech Stack
 * **AI/LLMs:** Claude Opus 4.6, Sonnet 4.6, Haiku 4.5, GPT 5.4 Medium/High, Gemini 3.1 Pro, OpenRouter with Qwen3.6 Plus and Gemma 4, Local Models (Qwen and Gemma variants).
