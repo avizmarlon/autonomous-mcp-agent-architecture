@@ -41,7 +41,7 @@ graph TD
 ### Component Breakdown
 
 1. **Data Extractor (Chrome Extension MV3):** 
-   A sandboxed extension injected into the target web environment. It captures real-time DOM state, network requests, and historical data logs without relying on public APIs.
+   A sandboxed extension injected into the target web environment. It captures real-time page data, network requests, without relying on public APIs.
    
 2. **Native Messaging Host:** 
    Acts as the secure, high-speed bridge between the browser environment and the local operating system.
@@ -55,15 +55,15 @@ graph TD
 By shifting from "eager context loading" (pasting transcripts) to "lazy context fetching" (tool calling via MCP), the token footprint for a single complex diagnostic session dropped from ~1.4M tokens to roughly 3k tokens, maintaining 100% analytical accuracy.
 
 ### 2. The Concurrency Challenge (Stdio vs. HTTP)
-Standard MCP servers use `stdio` transport, creating a 1:1 relationship (one dedicated process per client). However, my workflow required using multiple AI tools (like Cursor and Claude Code) simultaneously. 
+Standard MCP servers use `stdio` transport, creating a 1:1 relationship (one dedicated process per client). However, my workflow required using multiple agentic AI tools in parallel. 
 
 **The Fix:** I rewrote the MCP server transport layer, dropping `stdio` in favor of a `StreamableHTTPServerTransport` daemon with session management. Now, multiple AI tools receive unique session IDs but share the same underlying data buffer and browser state.
 
 ## 🛠️ Tech Stack
-* **AI/LLMs:** Claude 3.5 Sonnet, GPT-4o, Local Models
+* **AI/LLMs:** Claude Opus 4.6, Sonnet 4.6, Haiku 4.5, GPT 5.4 Medium/High, Gemini 3.1 Pro, OpenRouter with Qwen3.6 Plus and Gemma 4, Local Models (Qwen and Gemma variants).
 * **Protocols:** Model Context Protocol (MCP)
 * **Backend:** Node.js, TypeScript
 * **Browser:** Chrome Extension API (Manifest V3), Native Messaging
 
 ---
-*Note: This repository contains the architectural blueprint and documentation for this PoC. Source code is kept private due to proprietary data structures used in the testing environments.*
+*Note: This repository contains the architectural blueprint and documentation for this PoC. Source code is kept private due to personal data structures used in the testing environments.*
